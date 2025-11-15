@@ -4,6 +4,8 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -23,6 +25,8 @@ export class VotesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentsService: PaymentsService,
+    @Inject(forwardRef(() => 'LeaderboardGateway'))
+    private readonly leaderboardGateway?: any,
   ) {}
 
   /**
@@ -275,6 +279,18 @@ export class VotesService {
       this.logger.log(
         `Vote confirmé avec succès: ${vote.id} pour le candidat ${vote.candidate.name}`,
       );
+
+      // 6. Déclencher la mise à jour du leaderboard en temps réel
+      if (this.leaderboardGateway && this.leaderboardGateway.triggerUpdate) {
+        try {
+          await this.leaderboardGateway.triggerUpdate();
+          this.logger.debug('⚡ Leaderboard mis à jour en temps réel');
+        } catch (error) {
+          this.logger.warn(
+            `Impossible de mettre à jour le leaderboard: ${error.message}`,
+          );
+        }
+      }
     }
 
     return updatedVote;
